@@ -29,12 +29,19 @@
 #define  __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/mman.h>
+#include <sys/cachectl.h>
 #include <android/log.h>
 
 #if defined(__aarch64__)
 
 #include "And64InlineHook.hpp"
+
+#define __flush_cache(c, n)        __builtin___clear_cache(reinterpret_cast<char *>(c), reinterpret_cast<char *>(c) + n)
+
+
 #define   A64_MAX_INSTRUCTIONS 5
 #define   A64_MAX_REFERENCES   (A64_MAX_INSTRUCTIONS * 2)
 #define   A64_NOP              0xd503201fu
@@ -470,7 +477,7 @@ extern "C" {
 #define __atomic_increase(p)       __sync_add_and_fetch(p, 1)
 #define __sync_cmpswap(p, v, n)    __sync_bool_compare_and_swap(p, v, n)
 #define __predict_true(exp)        __builtin_expect((exp) != 0, 1)
-#define __flush_cache(c, n)        __builtin___clear_cache(reinterpret_cast<char *>(c), reinterpret_cast<char *>(c) + n)
+// #define __flush_cache(c, n)        cacheflush(reinterpret_cast<char *>(c), reinterpret_cast<char *>(c) + n, 0);
 #define __make_rwx(p, n)           ::mprotect(__ptr_align(p), \
                                               __page_align(__uintval(p) + n) != __page_align(__uintval(p)) ? __page_align(n) + __page_size : __page_align(n), \
                                               PROT_READ | PROT_WRITE | PROT_EXEC)
@@ -523,7 +530,7 @@ extern "C" {
             int32_t count = (reinterpret_cast<uint64_t>(original + 2) & 7u) != 0u ? 5 : 4;
             if (trampoline) {
                 if (rwx_size < count * 10u) {
-                    LOGW("rwx size is too small to hold %u bytes backup instructions!", count * 10u);
+                    A64_LOGI("rwx size is too small to hold %u bytes backup instructions!", count * 10u);
                     return NULL;
                 } //if
                 __fix_instructions(original, count, trampoline);
@@ -549,7 +556,7 @@ extern "C" {
         } else {
             if (trampoline) {
                 if (rwx_size < 1u * 10u) {
-                    LOGW("rwx size is too small to hold %u bytes backup instructions!", 1u * 10u);
+                    A64_LOGI("rwx size is too small to hold %u bytes backup instructions!", 1u * 10u);
                     return NULL;
                 } //if
                 __fix_instructions(original, 1, trampoline);
